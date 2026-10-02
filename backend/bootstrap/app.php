@@ -13,6 +13,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->alias([
+            'project.owner' => \App\Http\Middleware\EnsureProjectOwnership::class,
+        ]);
         // Token-based auth — no CSRF needed for API
         $middleware->api(prepend: [
             \Illuminate\Http\Middleware\HandleCors::class,
@@ -21,4 +24,3 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();
-
