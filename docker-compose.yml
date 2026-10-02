@@ -2,12 +2,7 @@ services:
   backend:
     build: ./backend
     container_name: editorai-backend
-    command: >
-      sh -c "chown -R www-data:www-data /var/www/storage /var/www/database &&
-             chmod -R 775 /var/www/storage /var/www/database &&
-             php artisan migrate --force &&
-             php artisan storage:link 2>/dev/null;
-             php artisan serve --host=0.0.0.0 --port=8000"
+    command: [php, artisan, serve, --host=0.0.0.0, --port=8000]
     volumes:
       - storage-data:/var/www/storage/app/public
       - backend-db:/var/www/database
@@ -21,8 +16,6 @@ services:
     container_name: editorai-frontend
     ports:
       - "2994:80"
-    volumes:
-      - storage-data:/srv/storage:ro
     depends_on:
       - backend
     networks:

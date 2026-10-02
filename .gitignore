@@ -4,3 +4,7 @@
 # OS
 .DS_Store
 Thumbs.db
+
+# Python release helpers
+__pycache__/
+*.pyc

@@ -19,6 +19,7 @@ services:
     mem_limit: 512m
     memswap_limit: 512m
     cpus: 1
+    pids_limit: 128
     restart: unless-stopped
   frontend:
     image: turalheydarov/editorai-frontend:${RELEASE_SHA:?immutable release SHA required}
@@ -29,6 +30,7 @@ services:
     mem_limit: 64m
     memswap_limit: 64m
     cpus: 0.25
+    pids_limit: 64
     restart: unless-stopped
 networks:
   app: {}

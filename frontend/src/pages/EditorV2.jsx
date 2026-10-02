@@ -87,6 +87,15 @@ export default function EditorV2() {
         catch { setLoadError('Layihə tapılmadı'); }
     };
 
+    // Renew the short legacy media cookie while this editor is open.
+    useEffect(() => {
+        if (!project?.playback_url?.startsWith('/api/projects/') || api.usesSharedSignIn()) return;
+        const timer = setInterval(() => api.prepareMediaSession(project.id).catch(() => {
+            videoRef.current?.pause(); setLoadError('Video access has ended');
+        }), 240000);
+        return () => clearInterval(timer);
+    }, [project?.id, project?.playback_url]);
+
     // ─── Build segments ──────────────────────
     useEffect(() => {
         if (!project) return;
@@ -299,7 +308,7 @@ export default function EditorV2() {
                     <div className="v2-preview-container">
                         {project?.source_url ? (
                             <div className="v2-canvas">
-                                <video ref={videoRef} src={project.source_url} onTimeUpdate={handleTimeUpdate} onLoadedMetadata={handleVideoLoaded} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} style={{ opacity: activeBroll ? 0.3 : 1 }} />
+                                <video ref={videoRef} src={project.playback_url} onTimeUpdate={handleTimeUpdate} onLoadedMetadata={handleVideoLoaded} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} style={{ opacity: activeBroll ? 0.3 : 1 }} />
                                 {activeBroll && (
                                     <div className="v2-broll-overlay">
                                         {activeBroll.brollType === 'video' ? <video ref={brollVideoRef} src={activeBroll.src} muted autoPlay loop playsInline /> : <img src={activeBroll.src} alt="" />}

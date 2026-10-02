@@ -46,3 +46,20 @@ test('disabled shared gate keeps existing bearer authentication', async () => {
   assert.equal(api.isAuthenticated(),true);
   assert.equal(requests.at(-1)[1].headers.Authorization,'Bearer legacy-fixture');
 });
+
+
+test('private video is primed through authenticated POST and never uses the public storage URL', async () => {
+  globalThis.localStorage=fixtureStorage();localStorage.setItem('auth_token','legacy-fixture');
+  const requests=[];
+  globalThis.fetch=async (url,options) => {
+    requests.push([url,options]);
+    if(url.endsWith('/sso/status')) return Response.json({enabled:false});
+    if(url.endsWith('/media-session')) return new Response(null,{status:204});
+    return Response.json({id:7,source_url:'/storage/videos/private.mp4',playback_url:'/api/projects/7/media'});
+  };
+  const { api }=await import('../src/services/api.js?media-fixture');await api.bootstrap();
+  const project=await api.getProject(7);assert.equal(project.playback_url,'/api/projects/7/media');
+  assert.equal(requests.at(-1)[0],'/api/projects/7/media-session');
+  assert.equal(requests.at(-1)[1].method,'POST');assert.equal(requests.at(-1)[1].headers.Authorization,'Bearer legacy-fixture');
+  assert.equal(requests.at(-1)[1].credentials,'same-origin');
+});

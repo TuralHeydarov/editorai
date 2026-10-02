@@ -1,0 +1,39 @@
+name: Guarded Netcup release
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Exact current main SHA with green schema-isolation build
+        required: true
+      run_id:
+        description: Successful main push run ID
+        required: true
+  workflow_run:
+    workflows: [PostgreSQL schema isolation]
+    types: [completed]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: guarded-netcup-editorai
+  cancel-in-progress: false
+jobs:
+  release:
+    if: vars.ENABLE_TARGET_RELEASE == 'true' && (github.event_name == 'workflow_dispatch' || (github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.conclusion == 'success'))
+    environment: netcup-editorai-production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Send admitted artifacts through the app-only forced command
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_APP: editorai
+          RELEASE_SHA: ${{ inputs.sha || github.event.workflow_run.head_sha }}
+          RELEASE_RUN_ID: ${{ inputs.run_id || github.event.workflow_run.id }}
+          TARGET_SSH_PRIVATE_KEY: ${{ secrets.TARGET_SSH_PRIVATE_KEY }}
+          TARGET_KNOWN_HOSTS: ${{ secrets.TARGET_KNOWN_HOSTS }}
+        run: python3 deploy/send.py

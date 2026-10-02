@@ -29,6 +29,8 @@ Route::prefix('api')->group(function () {
         Route::get('/projects/{project}', [ProjectController::class, 'show']);
         Route::get('/projects/{project}/status', [ProjectController::class, 'checkStatus']);
 
+        Route::post('/projects/{project}/media-session', [\App\Http\Controllers\Api\ProjectMediaController::class, 'session'])->middleware('throttle:30,1');
+
         // AI Analysis & Chat
         Route::post('/projects/{project}/analyze', [ProjectController::class, 'analyze']);
         Route::post('/projects/{project}/chat', [ProjectController::class, 'chat']);

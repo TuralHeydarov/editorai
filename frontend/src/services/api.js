@@ -117,7 +117,15 @@ export const api = {
 
   async getProject(id) {
     const res = await authFetch(`${API_BASE}/projects/${id}`);
-    return res.json();
+    if (!res.ok) throw new Error('Project is unavailable');
+    const project = await res.json();
+    if (project.playback_url?.startsWith('/api/projects/')) await this.prepareMediaSession(id);
+    return project;
+  },
+
+  async prepareMediaSession(id) {
+    const res = await authFetch(`${API_BASE}/projects/${id}/media-session`, { method: 'POST' });
+    if (!res.ok) throw new Error('Video is unavailable');
   },
 
   async checkStatus(id) {
@@ -171,7 +179,9 @@ export const api = {
   // === Render ===
   async render(id) {
     const res = await authFetch(`${API_BASE}/projects/${id}/render`, { method: 'POST' });
-    return res.json();
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Rendering is unavailable');
+    return data;
   },
 
   // === Timeline Save ===
