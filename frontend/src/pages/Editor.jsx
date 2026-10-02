@@ -56,6 +56,15 @@ export default function Editor() {
     }
   };
 
+    // Renew the short legacy media cookie while this editor is open.
+    useEffect(() => {
+        if (!project?.playback_url?.startsWith('/api/projects/') || api.usesSharedSignIn()) return;
+        const timer = setInterval(() => api.prepareMediaSession(project.id).catch(() => {
+            videoRef.current?.pause(); setLoadError('Video access has ended');
+        }), 240000);
+        return () => clearInterval(timer);
+    }, [project?.id, project?.playback_url]);
+
   // ─── Build segments from project data ──────────────────────
   useEffect(() => {
     if (!project) return;
@@ -371,7 +380,7 @@ export default function Editor() {
             <div className="video-canvas" style={canvasStyle}>
               <video
                 ref={videoRef}
-                src={project.source_url}
+                src={project.playback_url}
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleVideoLoaded}
                 onPlay={() => setIsPlaying(true)}

@@ -11,3 +11,5 @@ storage/framework
 bootstrap/cache
 database/database.sqlite
 *.log
+
+public/storage

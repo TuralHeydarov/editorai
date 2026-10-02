@@ -21,6 +21,15 @@ class Project extends Model
         'conversation_history',
     ];
 
+    protected $appends = ['playback_url'];
+
+    public function getPlaybackUrlAttribute(): ?string
+    {
+        $source = $this->getRawOriginal('source_url');
+        if (!is_string($source)) { return null; }
+        return str_starts_with($source, '/') ? '/api/projects/'.$this->id.'/media' : $source;
+    }
+
     protected $casts = [
         'settings' => 'array',
         'conversation_history' => 'array',

@@ -45,6 +45,7 @@ jobs:
           php-version: '8.3'
           extensions: mbstring, pdo_pgsql, pdo_sqlite, xml, curl
           coverage: none
+      - run: cp .env.example .env
       - run: composer install --no-interaction --prefer-dist
       - name: Prepare isolated database and migrate schema
         env:
@@ -74,7 +75,7 @@ jobs:
       - name: Shared callback, linking, onboarding and revocation fixtures
         env:
           APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-        run: php artisan test --filter='(SharedSsoFlowTest|ProjectIsolationTest)'
+        run: php artisan test --filter='(SharedSsoFlowTest|ProjectIsolationTest|PrivateProjectMediaTest)'
 
   browser-auth:
     runs-on: ubuntu-latest
@@ -99,6 +100,8 @@ jobs:
         component: [backend, frontend]
     steps:
       - uses: actions/checkout@v4
+      - name: Guarded receiver negative probes
+        run: python3 -m unittest discover -s deploy/tests -v
       - name: Build secret-free immutable runtime image
         run: |
           context="${{ matrix.component }}"

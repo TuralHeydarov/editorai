@@ -16,11 +16,24 @@ class Json2VideoService
         $this->apiKey = config('services_external.json2video.api_key');
     }
 
+    /** Private uploads have no external-provider delivery mechanism. */
+    public function assertProviderSource(string $sourceUrl): void
+    {
+        $url = parse_url($sourceUrl);
+        $appHost = strtolower((string) parse_url(config('app.url'), PHP_URL_HOST));
+        if (!is_array($url) || !in_array(strtolower($url['scheme'] ?? ''), ['http', 'https'], true)
+            || empty($url['host']) || isset($url['user']) || isset($url['pass'])
+            || in_array(strtolower($url['host']), array_filter([$appHost, 'editorai.tural.ai']), true)) {
+            throw new \DomainException('Private uploaded video supports viewing and editing. External transcription and rendering are not enabled.');
+        }
+    }
+
     /**
      * Transcribe a video/audio URL to SRT
      */
     public function transcribe(string $sourceUrl, string $language = 'az'): array
     {
+        $this->assertProviderSource($sourceUrl);
         $response = Http::withHeaders(['X-API-Key' => $this->apiKey])
             ->post("{$this->baseUrl}/transcribe", [
                 'src' => $sourceUrl,
@@ -78,6 +91,7 @@ class Json2VideoService
         ?array $backgroundMusic = null,
         ?string $hookText = null
     ): array {
+        $this->assertProviderSource($sourceVideoUrl);
         $resolution = ($settings['format'] ?? 'vertical') === 'vertical'
             ? ['width' => 1080, 'height' => 1920]
             : ['width' => 1920, 'height' => 1080];

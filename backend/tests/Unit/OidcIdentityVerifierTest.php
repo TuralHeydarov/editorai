@@ -94,7 +94,7 @@ class OidcIdentityVerifierTest extends TestCase
         $details = openssl_pkey_get_details($key);
         $encode = static fn ($s) => rtrim(strtr(base64_encode($s), '+/', '-_'), '=');
         $jwks = ['keys' => [['kty' => 'EC', 'crv' => 'P-256', 'alg' => 'ES256', 'kid' => 'ec-fixture',
-            'x' => $encode($details['ec']['x']), 'y' => $encode($details['ec']['y'])]]];
+            'x' => $encode(str_pad($details['ec']['x'], 32, "\0", STR_PAD_LEFT)), 'y' => $encode(str_pad($details['ec']['y'], 32, "\0", STR_PAD_LEFT))]]];
         $id = JWT::encode($this->identity, $key, 'ES256', 'ec-fixture');
         $access = JWT::encode($this->access, $key, 'ES256', 'ec-fixture');
         $this->assertSame($this->identity['sub'], $this->verifier()->verify($id, $access, 'fixture-nonce', $jwks)['subject']);

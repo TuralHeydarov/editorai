@@ -38,7 +38,7 @@ class SharedSsoFlowTest extends TestCase
         $details = openssl_pkey_get_details($this->key);
         $encode = static fn ($s) => rtrim(strtr(base64_encode($s), '+/', '-_'), '=');
         $this->jwks = ['keys' => [['kty' => 'EC', 'crv' => 'P-256', 'alg' => 'ES256', 'kid' => 'fixture',
-            'x' => $encode($details['ec']['x']), 'y' => $encode($details['ec']['y'])]]];
+            'x' => $encode(str_pad($details['ec']['x'], 32, "\0", STR_PAD_LEFT)), 'y' => $encode(str_pad($details['ec']['y'], 32, "\0", STR_PAD_LEFT))]]];
         // Only the production shared function is replaced; JWT/PKCE/HTTP/session/binding paths are real.
         $this->partialMock(SharedSso::class, function ($mock) { $mock->shouldReceive('sessionActive')->andReturn(true); });
         Http::preventStrayRequests();

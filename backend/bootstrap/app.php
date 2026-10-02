@@ -15,10 +15,13 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prependToPriorityList(\Illuminate\Auth\Middleware\Authenticate::class, \App\Http\Middleware\SharedApiSession::class);
         $middleware->prepend(\App\Http\Middleware\ConfigureSharedSso::class);
+        $middleware->encryptCookies(except: [\App\Http\Middleware\RequireMediaSession::COOKIE]);
+        $middleware->prependToPriorityList(\Illuminate\Routing\Middleware\SubstituteBindings::class, \App\Http\Middleware\RequireMediaSession::class);
         $middleware->alias([
             'sso.api' => \App\Http\Middleware\SharedApiSession::class,
             'sso.session' => \App\Http\Middleware\RequireSharedSession::class,
             'legacy.login' => \App\Http\Middleware\DisableLegacyLogin::class,
+            'media.session' => \App\Http\Middleware\RequireMediaSession::class,
             'project.owner' => \App\Http\Middleware\EnsureProjectOwnership::class,
         ]);
         // Token-based auth — no CSRF needed for API

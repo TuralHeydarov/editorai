@@ -53,10 +53,15 @@ class ProjectController extends Controller
         $isLocalUpload = false;
         if ($request->hasFile('video_file')) {
             $file = $request->file('video_file');
-            $filename = time() . '_' . $file->getClientOriginalName();
+            $filename = (string) \Illuminate\Support\Str::uuid().'.'.$file->extension();
             $file->storeAs('videos', $filename, 'public');
             $sourceUrl = '/storage/videos/' . $filename;
             $isLocalUpload = true;
+        }
+
+        if (!$isLocalUpload) {
+            try { $this->json2video->assertProviderSource($sourceUrl); }
+            catch (\DomainException $e) { return response()->json(['error' => $e->getMessage()], 422); }
         }
 
         $project = Project::create([
@@ -346,14 +351,19 @@ class ProjectController extends Controller
         $actionParams = $result['action']['params'] ?? [];
         $actionResult = null;
 
+        if (in_array($actionType, ['transcribe', 'render'], true)
+            || ($actionType === 'analyze_video' && empty($project->srt_content))) {
+            try { $this->json2video->assertProviderSource($project->source_url ?? ''); }
+            catch (\DomainException $e) {
+                return response()->json(['error' => $e->getMessage(), 'message' => $e->getMessage(),
+                    'action' => ['type' => 'none'], 'action_result' => null, 'project' => $project], 422);
+            }
+        }
+
         try {
             switch ($actionType) {
                 case 'transcribe':
-                    // Build full public URL from relative path
                     $videoUrl = $project->source_url;
-                    if (str_starts_with($videoUrl, '/')) {
-                        $videoUrl = rtrim(config('app.url'), '/') . $videoUrl;
-                    }
                     $transcribeResult = $this->json2video->transcribe($videoUrl);
                     $jobId = $transcribeResult['job_id'] ?? null;
 
@@ -373,9 +383,6 @@ class ProjectController extends Controller
                     // If no SRT, auto-start transcription first
                     if (empty($project->srt_content)) {
                         $videoUrl = $project->source_url;
-                        if (str_starts_with($videoUrl, '/')) {
-                            $videoUrl = rtrim(config('app.url'), '/') . $videoUrl;
-                        }
                         $transcribeResult = $this->json2video->transcribe($videoUrl);
                         $jobId = $transcribeResult['job_id'] ?? null;
                         if ($jobId) {
@@ -596,6 +603,9 @@ class ProjectController extends Controller
      */
     public function render(Project $project): JsonResponse
     {
+        // Never publish private uploads or spend on a renderer that cannot access them.
+        try { $this->json2video->assertProviderSource($project->source_url ?? ''); }
+        catch (\DomainException $e) { return response()->json(['error' => $e->getMessage()], 422); }
         $project->update(['status' => 'rendering']);
         $project->load('clips');
         $results = [];
