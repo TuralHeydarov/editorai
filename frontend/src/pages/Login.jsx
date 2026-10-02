@@ -22,6 +22,8 @@ export default function Login() {
         setLoading(false);
     };
 
+    if (api.usesSharedSignIn()) return <div className="auth-page"><div className="auth-card"><h1>Giriş</h1><a className="btn-primary btn-full" href="/api/auth/sso/login">Tural hesabı ilə daxil ol</a></div></div>;
+
     return (
         <div className="auth-page">
             <div className="auth-card">

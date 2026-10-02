@@ -10,7 +10,7 @@ return new class extends Migration {
         Schema::create('projects', function (Blueprint $table) {
             $table->id();
             $table->string('title')->nullable();
-            $table->enum('status', ['uploading', 'transcribing', 'analyzing', 'clips_ready', 'rendering', 'done', 'failed'])->default('uploading');
+            $table->enum('status', ['uploading', 'uploaded', 'transcribing', 'analyzing', 'clips_ready', 'rendering', 'done', 'failed'])->default('uploading');
 
             // Source video
             $table->string('source_url');            // Original video URL

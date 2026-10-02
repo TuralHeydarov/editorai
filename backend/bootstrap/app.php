@@ -13,6 +13,14 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->prependToPriorityList(\Illuminate\Auth\Middleware\Authenticate::class, \App\Http\Middleware\SharedApiSession::class);
+        $middleware->prepend(\App\Http\Middleware\ConfigureSharedSso::class);
+        $middleware->alias([
+            'sso.api' => \App\Http\Middleware\SharedApiSession::class,
+            'sso.session' => \App\Http\Middleware\RequireSharedSession::class,
+            'legacy.login' => \App\Http\Middleware\DisableLegacyLogin::class,
+            'project.owner' => \App\Http\Middleware\EnsureProjectOwnership::class,
+        ]);
         // Token-based auth — no CSRF needed for API
         $middleware->api(prepend: [
             \Illuminate\Http\Middleware\HandleCors::class,
@@ -21,4 +29,3 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();
-
