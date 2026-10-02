@@ -103,6 +103,15 @@ jobs:
         run: |
           context="${{ matrix.component }}"
           docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag turalheydarov/editorai-${{ matrix.component }}:"$GITHUB_SHA" "$context"
+      - name: Verify packaged backend boot and PostgreSQL support
+        if: matrix.component == 'backend'
+        run: |
+          image=turalheydarov/editorai-backend:"$GITHUB_SHA"
+          docker run --rm --network none --memory 256m --memory-swap 256m "$image" php -r 'exit(extension_loaded("pdo_pgsql") && posix_geteuid() !== 0 ? 0 : 1);'
+          docker run --rm --network none --memory 256m --memory-swap 256m \
+            -e APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+            -e SHARED_SSO_ENABLED=true -e SESSION_DRIVER=database -e CACHE_STORE=database \
+            "$image" php artisan route:list --path=api/auth/sso --json
       - name: Save immutable image for the coordinated release
         run: |
           docker save turalheydarov/editorai-${{ matrix.component }}:"$GITHUB_SHA" | gzip > image.tar.gz
