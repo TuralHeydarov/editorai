@@ -2,8 +2,8 @@ FROM php:8.2-fpm
 
 # Install system deps
 RUN apt-get update && apt-get install -y \
-    git curl zip unzip libpng-dev libonig-dev libxml2-dev libsqlite3-dev \
-    && docker-php-ext-install pdo pdo_sqlite mbstring xml bcmath gd \
+    git curl zip unzip libpng-dev libonig-dev libxml2-dev libsqlite3-dev libpq-dev \
+    && docker-php-ext-install pdo pdo_sqlite pdo_pgsql mbstring xml bcmath gd \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # PHP config for large uploads

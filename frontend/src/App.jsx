@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { api } from './services/api';
 import Sidebar from './components/Sidebar';
@@ -52,13 +53,16 @@ function AppShellEditor({ children }) {
 }
 
 function App() {
+    const [ready, setReady] = useState(false);
+    useEffect(() => { let active = true; api.bootstrap().finally(() => { if (active) setReady(true); }); return () => { active = false; }; }, []);
+    if (!ready) return <div className="auth-page">Loading…</div>;
     return (
         <BrowserRouter>
             <Routes>
                 {/* Public (no sidebar) */}
                 <Route path="/" element={<Landing />} />
                 <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-                <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+                <Route path="/register" element={<PublicRoute>{api.usesSharedSignIn() ? <Login /> : <Register />}</PublicRoute>} />
 
                 {/* Protected with sidebar + topbar */}
                 <Route path="/dashboard" element={

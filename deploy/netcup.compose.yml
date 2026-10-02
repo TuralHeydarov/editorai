@@ -1,0 +1,37 @@
+name: editorai-netcup
+services:
+  backend:
+    image: turalheydarov/editorai-backend:${RELEASE_SHA:?immutable release SHA required}
+    profiles: [web]
+    env_file: ${RUNTIME_ENV_FILE:?protected runtime config required}
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      DB_CONNECTION: pgsql
+      DB_SCHEMA: editorai
+      SESSION_DRIVER: database
+      CACHE_STORE: database
+      QUEUE_CONNECTION: database
+    command: [php, artisan, serve, --host=0.0.0.0, --port=8000]
+    ports: ["127.0.0.1:8207:8000"]
+    volumes: ["${STORAGE_PATH:?restored application storage required}:/var/www/storage/app"]
+    networks: [app, supabase]
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 1
+    restart: unless-stopped
+  frontend:
+    image: turalheydarov/editorai-frontend:${RELEASE_SHA:?immutable release SHA required}
+    profiles: [web]
+    ports: ["127.0.0.1:2994:80"]
+    depends_on: [backend]
+    networks: [app]
+    mem_limit: 64m
+    memswap_limit: 64m
+    cpus: 0.25
+    restart: unless-stopped
+networks:
+  app: {}
+  supabase:
+    external: true
+    name: ${SUPABASE_DOCKER_NETWORK:?existing approved Supabase network required}

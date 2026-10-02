@@ -13,11 +13,11 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('api')->group(function () {
 
     // --- Auth (Public) ---
-    Route::post('/auth/register', [AuthController::class, 'register']);
-    Route::post('/auth/login', [AuthController::class, 'login']);
+    Route::post('/auth/register', [AuthController::class, 'register'])->middleware('legacy.login');
+    Route::post('/auth/login', [AuthController::class, 'login'])->middleware('legacy.login');
 
     // --- Protected Routes ---
-    Route::middleware(['auth:sanctum', 'project.owner'])->group(function () {
+    Route::middleware(['sso.api', 'auth:sanctum', 'project.owner'])->group(function () {
 
         // Auth
         Route::get('/auth/user', [AuthController::class, 'user']);

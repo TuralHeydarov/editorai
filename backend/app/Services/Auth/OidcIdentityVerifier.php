@@ -85,4 +85,20 @@ final class OidcIdentityVerifier
         // Email and profile metadata never confer ownership or app permissions.
         return ['issuer' => $this->issuer, 'subject' => $id['sub']];
     }
+
+    /** Access tokens on refresh have no ID token/nonce; retain the fixed client + session. */
+    public function verifyAccess(string $accessToken, array $jwks): array
+    {
+        $claims = $this->decode($accessToken, $jwks);
+        $audiences = is_array($claims['aud'] ?? null) ? $claims['aud'] : [$claims['aud'] ?? null];
+        if (!in_array($this->accessAudience, $audiences, true)
+            || ($claims['client_id'] ?? null) !== $this->clientId
+            || ($claims['role'] ?? null) !== 'authenticated'
+            || !is_string($claims['session_id'] ?? null)
+            || !preg_match('/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iD', $claims['session_id'])) {
+            throw new DomainException('Invalid shared access session');
+        }
+        return ['issuer' => $this->issuer, 'subject' => $claims['sub'],
+            'client_id' => $this->clientId, 'session_id' => $claims['session_id'], 'expires_at' => $claims['exp']];
+    }
 }

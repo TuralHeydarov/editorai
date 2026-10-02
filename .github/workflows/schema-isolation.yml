@@ -1,0 +1,116 @@
+name: PostgreSQL schema isolation
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-schema:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: editorai_ci
+          POSTGRES_PASSWORD: ci-fixture-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: editorai_ci
+      DB_SCHEMA: editorai
+      DB_USERNAME: postgres
+      DB_PASSWORD: ci-fixture-only
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      MAIL_MAILER: array
+      BROADCAST_CONNECTION: 'null'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo_pgsql, pdo_sqlite, xml, curl
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist
+      - name: Prepare isolated database and migrate schema
+        env:
+          PGPASSWORD: ci-fixture-only
+        run: |
+          psql -h 127.0.0.1 -U postgres -d editorai_ci -v ON_ERROR_STOP=1 <<'SQL'
+          REVOKE ALL ON SCHEMA public FROM PUBLIC;
+          CREATE TABLE public.sentinel(id integer);
+          CREATE SCHEMA editorai;
+          CREATE SCHEMA foreign_probe;
+          CREATE TABLE foreign_probe.sentinel(id integer);
+          CREATE ROLE editorai_ci_app LOGIN PASSWORD 'ci-app-fixture-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
+          SQL
+          php artisan migrate --force
+          psql -h 127.0.0.1 -U postgres -d editorai_ci -v ON_ERROR_STOP=1 <<'SQL'
+          GRANT USAGE ON SCHEMA editorai TO editorai_ci_app;
+          GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA editorai TO editorai_ci_app;
+          GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA editorai TO editorai_ci_app;
+          SQL
+      - name: Verify application connection and denied foreign access
+        env:
+          CI_PG_SCHEMA_PROBE: '1'
+          DB_USERNAME: editorai_ci_app
+          DB_PASSWORD: ci-app-fixture-only
+          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+        run: php artisan test --filter='(PostgresSchemaIsolationTest|PkceHandshakeTest|OidcIdentityVerifierTest)'
+      - name: Shared callback, linking, onboarding and revocation fixtures
+        env:
+          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+        run: php artisan test --filter='(SharedSsoFlowTest|ProjectIsolationTest)'
+
+  browser-auth:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: node --test tests/auth-transport.test.mjs
+      - run: npm run build
+
+  runtime-images:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build secret-free immutable runtime image
+        run: |
+          context="${{ matrix.component }}"
+          docker build --label org.opencontainers.image.revision="$GITHUB_SHA" --tag turalheydarov/editorai-${{ matrix.component }}:"$GITHUB_SHA" "$context"
+      - name: Save immutable image for the coordinated release
+        run: |
+          docker save turalheydarov/editorai-${{ matrix.component }}:"$GITHUB_SHA" | gzip > image.tar.gz
+          sha256sum image.tar.gz > image.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: editorai-${{ matrix.component }}-${{ github.sha }}
+          path: |
+            image.tar.gz
+            image.sha256
+          retention-days: 7

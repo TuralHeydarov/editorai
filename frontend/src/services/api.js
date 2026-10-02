@@ -1,7 +1,10 @@
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const API_BASE = import.meta.env?.VITE_API_URL || '/api';
 
 // Get stored token
 const getToken = () => localStorage.getItem('auth_token');
+let sharedMode = false;
+let sharedUser = null;
+let csrfToken = null;
 
 // Helper for authenticated requests
 const authFetch = async (url, options = {}) => {
@@ -10,14 +13,15 @@ const authFetch = async (url, options = {}) => {
     'Accept': 'application/json',
     ...options.headers,
   };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (sharedMode) { if (csrfToken) headers['X-CSRF-TOKEN'] = csrfToken; }
+  else if (token) headers['Authorization'] = `Bearer ${token}`;
   // Only set JSON content-type for string bodies (not FormData)
   if (options.body && typeof options.body === 'string') headers['Content-Type'] = 'application/json';
 
-  const res = await fetch(url, { ...options, headers });
+  const res = await fetch(url, { ...options, credentials: 'same-origin', headers });
 
   if (res.status === 401) {
-    localStorage.removeItem('auth_token');
+    if (!sharedMode) localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
     window.location.href = '/login';
     throw new Error('Unauthorized');
@@ -27,6 +31,21 @@ const authFetch = async (url, options = {}) => {
 };
 
 export const api = {
+  async bootstrap() {
+    try {
+      const response = await fetch(`${API_BASE}/auth/sso/status`, { credentials: 'same-origin', cache: 'no-store' });
+      const status = response.ok ? await response.json() : { enabled: false };
+      sharedMode = !!status.enabled;
+      csrfToken = status.csrf_token || null;
+      if (sharedMode) {
+        const profile = await fetch(`${API_BASE}/auth/user`, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+        sharedUser = profile.ok ? await profile.json() : null;
+        if (sharedUser) localStorage.removeItem('auth_token');
+        localStorage.removeItem('user');
+      }
+    } catch { sharedUser = null; }
+  },
+  usesSharedSignIn() { return sharedMode; },
   // === Auth ===
   async register(name, email, password, password_confirmation) {
     const res = await fetch(`${API_BASE}/auth/register`, {
@@ -57,18 +76,20 @@ export const api = {
   },
 
   logout() {
+    if (sharedMode) { window.location.assign('/api/auth/sso/account'); return; }
     authFetch(`${API_BASE}/auth/logout`, { method: 'POST' }).catch(() => { });
-    localStorage.removeItem('auth_token');
+    if (!sharedMode) localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
   },
 
   getUser() {
+    if (sharedMode) return sharedUser;
     const u = localStorage.getItem('user');
     return u ? JSON.parse(u) : null;
   },
 
   isAuthenticated() {
-    return !!getToken();
+    return sharedMode ? !!sharedUser : !!getToken();
   },
 
   // === Projects ===
@@ -90,21 +111,7 @@ export const api = {
     formData.append('video_file', file);
     if (title) formData.append('title', title);
 
-    const token = getToken();
-    const res = await fetch(`${API_BASE}/projects`, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-      },
-      body: formData,
-    });
-    if (res.status === 401) {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
-      throw new Error('Unauthorized');
-    }
+    const res = await authFetch(`${API_BASE}/projects`, { method: 'POST', body: formData });
     return res.json();
   },
 

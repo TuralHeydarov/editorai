@@ -18,7 +18,7 @@ class PkceHandshakeTest extends TestCase
         $flow = $this->client()->begin();
         parse_str(parse_url($flow['authorization_url'], PHP_URL_QUERY), $query);
         $this->assertSame('S256', $query['code_challenge_method']);
-        $this->assertSame('openid', $query['scope']);
+        $this->assertSame('openid email profile', $query['scope']);
         $this->assertSame('https://app.example/auth/callback', $query['redirect_uri']);
         $this->assertSame($flow['pending']['nonce'], $query['nonce']);
         $expected = rtrim(strtr(base64_encode(hash('sha256', $flow['pending']['verifier'], true)), '+/', '-_'), '=');

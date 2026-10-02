@@ -50,16 +50,18 @@ def prepare(snapshot, schema):
         if actual != set(TABLES) | {'migrations', 'sqlite_sequence'}:
             raise ValueError('Unknown/missing source tables; import refused')
         migration_names = sorted(r[0] for r in db.execute('SELECT migration FROM migrations'))
-        quoted_migrations = ','.join(literal(m) for m in migration_names)
+        target_migrations = migration_names + ['2026_10_02_000001_create_shared_identity_bindings_table']
+        quoted_migrations = ','.join(literal(m) for m in target_migrations)
         statements = ['BEGIN;', 'SET LOCAL standard_conforming_strings = on;',
                       f'SET LOCAL search_path = "{schema}";']
         statements.append(
             'DO $$ BEGIN IF (SELECT count(*) FROM migrations) <> '
-            + str(len(migration_names))
+            + str(len(target_migrations))
+            + ' OR (SELECT count(DISTINCT migration) FROM migrations) <> ' + str(len(target_migrations))
             + f' OR EXISTS (SELECT 1 FROM migrations WHERE migration NOT IN ({quoted_migrations})) '
             + "THEN RAISE EXCEPTION 'Migration sets differ'; END IF; END $$;"
         )
-        for table in TABLES:
+        for table in TABLES + ('shared_identity_bindings',):
             statements.append(
                 f'DO $$ BEGIN IF EXISTS (SELECT 1 FROM "{table}" LIMIT 1) '
                 + f"THEN RAISE EXCEPTION 'Target {table} is not empty'; END IF; END $$;"

@@ -44,7 +44,7 @@ final class PkceHandshake
         ];
         $parameters = [
             'response_type' => 'code', 'client_id' => $this->clientId,
-            'redirect_uri' => $this->callback, 'scope' => 'openid',
+            'redirect_uri' => $this->callback, 'scope' => 'openid email profile',
             'state' => $pending['state'], 'nonce' => $pending['nonce'],
             'code_challenge' => self::base64url(hash('sha256', $pending['verifier'], true)),
             'code_challenge_method' => 'S256',

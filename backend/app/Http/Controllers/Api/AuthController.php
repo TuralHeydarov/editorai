@@ -67,6 +67,10 @@ class AuthController extends Controller
      */
     public function logout(Request $request): JsonResponse
     {
+        if (config('shared_sso.enabled') || (config('shared_sso.linking_enabled') && $request->hasSession() && $request->session()->has('shared_identity'))) {
+            return app(\App\Http\Controllers\SharedSsoController::class)->logout($request, app(\App\Services\Auth\SharedSso::class));
+        }
+
         $request->user()->currentAccessToken()->delete();
 
         return response()->json(['message' => 'Çıxış edildi']);
